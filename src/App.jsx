@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react"; // Import SpeedInsights
 import Login from "./components/Login";
 import GameBoard from "./components/GameBoard";
 import Footer from "./components/Footer";
 
 const App = () => {
-  const [loggedInUser, setLoggedInUser] = useState(null); 
-  const [aiUser, setAIUser] = useState(""); 
+  const [loggedInUser, setLoggedInUser] = useState(null); // Logged-in user
+  const [aiUser, setAIUser] = useState(""); // AI user name
 
   // List of AI names
   const aiNames = ["Kumail", "Karan", "Iqbal", "Mateen", "Faisal", "Shahid", "Ihtisham", "Mudasir"];
@@ -33,6 +34,7 @@ const App = () => {
         <GameBoard loggedInUser={loggedInUser} aiUser={aiUser} />
       )}
       <Footer />
+      <SpeedInsights /> {/* Add SpeedInsights here */}
     </div>
   );
 };
