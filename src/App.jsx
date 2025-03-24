@@ -34,7 +34,7 @@ const App = () => {
         <GameBoard loggedInUser={loggedInUser} aiUser={aiUser} />
       )}
       <Footer />
-      <SpeedInsights /> {/* Add SpeedInsights here */}
+      <SpeedInsights />{/* Add SpeedInsights here */}
     </div>
   );
 };
