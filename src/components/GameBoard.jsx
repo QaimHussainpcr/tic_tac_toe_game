@@ -3,128 +3,157 @@ import { motion } from "framer-motion";
 import PlayerStatus from "./PlayerStatus";
 import Popup from "./Popup";
 
-const GameBoard = ({ loggedInUser, aiUser }) => {
+const GameBoard = ({ loggedInUser, aiUser, difficulty }) => {
   const [board, setBoard] = useState(Array(9).fill(null));
-  const [isUserTurn, setIsUserTurn] = useState(true); // True for user, false for AI
+  const [isUserTurn, setIsUserTurn] = useState(true);
   const [scores, setScores] = useState({ User: 0, AI: 0 });
-  const [showPopup, setShowPopup] = useState(false); // State to control popup visibility
+  const [showPopup, setShowPopup] = useState(false);
   const winner = calculateWinner(board);
 
-  // Handle user click
-  const handleClick = (index) => {
-    if (board[index] || winner || !isUserTurn) return; // Prevent clicks during AI's turn
-    const newBoard = [...board];
-    newBoard[index] = "X"; // User is always "X"
-    setBoard(newBoard);
-    setIsUserTurn(false); // Switch to AI's turn
-
-    // Check for a winner after updating the board
+  const checkGameResult = (newBoard) => {
     const currentWinner = calculateWinner(newBoard);
     if (currentWinner) {
       setScores((prevScores) => ({
         ...prevScores,
-        User: prevScores.User + 1,
+        [currentWinner === "X" ? "User" : "AI"]: prevScores[currentWinner === "X" ? "User" : "AI"] + 1,
       }));
-      setShowPopup(true); // Show popup when there's a winner
+      setShowPopup(true);
     } else if (newBoard.every((square) => square)) {
-      setShowPopup(true); // Show popup when the game is tied
+      setShowPopup(true);
     }
   };
 
-  // Minimax algorithm for AI
-  const minimax = (board, depth, isMaximizing) => {
-    const winner = calculateWinner(board);
-    if (winner === "O") return 10 - depth; // AI wins
-    if (winner === "X") return depth - 10; // User wins
-    if (board.every((square) => square)) return 0; // Draw
-
-    if (isMaximizing) {
-      let bestScore = -Infinity;
-      for (let i = 0; i < 9; i++) {
-        if (board[i] === null) {
-          board[i] = "O";
-          const score = minimax(board, depth + 1, false);
-          board[i] = null;
-          bestScore = Math.max(score, bestScore);
-        }
-      }
-      return bestScore;
-    } else {
-      let bestScore = Infinity;
-      for (let i = 0; i < 9; i++) {
-        if (board[i] === null) {
-          board[i] = "X";
-          const score = minimax(board, depth + 1, true);
-          board[i] = null;
-          bestScore = Math.min(score, bestScore);
-        }
-      }
-      return bestScore;
-    }
+  const handleClick = (index) => {
+    if (board[index] || winner || !isUserTurn) return;
+    const newBoard = [...board];
+    newBoard[index] = "X";
+    setBoard(newBoard);
+    setIsUserTurn(false);
+    checkGameResult(newBoard);
   };
 
-  // AI makes a move using Minimax
   const makeAIMove = () => {
-    let bestScore = -Infinity;
-    let bestMove = null;
-
+    // First check if AI can win immediately (always do this)
     for (let i = 0; i < 9; i++) {
       if (board[i] === null) {
-        board[i] = "O";
-        const score = minimax(board, 0, false);
-        board[i] = null;
-        if (score > bestScore) {
-          bestScore = score;
-          bestMove = i;
+        const newBoard = [...board];
+        newBoard[i] = "O";
+        if (calculateWinner(newBoard)) {
+          setBoard(newBoard);
+          setIsUserTurn(true);
+          checkGameResult(newBoard);
+          return;
         }
       }
     }
 
-    if (bestMove !== null) {
+    // Determine if AI should play optimally based on difficulty
+    let shouldPlayOptimally;
+    switch(difficulty) {
+      case "easy":
+        shouldPlayOptimally = Math.random() < 0.05; // 5% optimal play
+        break;
+      case "medium":
+        shouldPlayOptimally = Math.random() < 0.85; // 85% optimal play
+        break;
+      case "hard":
+        shouldPlayOptimally = true; // 100% optimal play
+        break;
+      default:
+        shouldPlayOptimally = true;
+    }
+
+    if (shouldPlayOptimally) {
+      // Block player if they can win next move
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === null) {
+          const newBoard = [...board];
+          newBoard[i] = "X";
+          if (calculateWinner(newBoard)) {
+            newBoard[i] = "O";
+            setBoard(newBoard);
+            setIsUserTurn(true);
+            checkGameResult(newBoard);
+            return;
+          }
+        }
+      }
+
+      // Take center if available
+      if (board[4] === null) {
+        const newBoard = [...board];
+        newBoard[4] = "O";
+        setBoard(newBoard);
+        setIsUserTurn(true);
+        checkGameResult(newBoard);
+        return;
+      }
+
+      // Take opposite corner if player is in corner
+      const oppositeCorners = {0:8, 2:6, 6:2, 8:0};
+      for (const [playerCorner, aiCorner] of Object.entries(oppositeCorners)) {
+        if (board[playerCorner] === "X" && board[aiCorner] === null) {
+          const newBoard = [...board];
+          newBoard[aiCorner] = "O";
+          setBoard(newBoard);
+          setIsUserTurn(true);
+          checkGameResult(newBoard);
+          return;
+        }
+      }
+
+      // Take any empty corner
+      const corners = [0, 2, 6, 8];
+      const availableCorners = corners.filter(i => board[i] === null);
+      if (availableCorners.length > 0) {
+        const newBoard = [...board];
+        newBoard[availableCorners[0]] = "O";
+        setBoard(newBoard);
+        setIsUserTurn(true);
+        checkGameResult(newBoard);
+        return;
+      }
+    }
+
+    // Otherwise make a random move
+    const emptySquares = board.map((square, index) => 
+      square === null ? index : null
+    ).filter(val => val !== null);
+    
+    if (emptySquares.length > 0) {
+      const randomIndex = Math.floor(Math.random() * emptySquares.length);
+      const bestMove = emptySquares[randomIndex];
       const newBoard = [...board];
       newBoard[bestMove] = "O";
       setBoard(newBoard);
-      setIsUserTurn(true); // Switch back to user's turn
-
-      // Check for a winner after AI's move
-      const currentWinner = calculateWinner(newBoard);
-      if (currentWinner) {
-        setScores((prevScores) => ({
-          ...prevScores,
-          AI: prevScores.AI + 1,
-        }));
-        setShowPopup(true); // Show popup when there's a winner
-      } else if (newBoard.every((square) => square)) {
-        setShowPopup(true); // Show popup when the game is tied
-      }
+      setIsUserTurn(true);
+      checkGameResult(newBoard);
     }
   };
 
-  // AI makes a move
   useEffect(() => {
     if (!isUserTurn && !winner && loggedInUser) {
       const timer = setTimeout(() => {
         makeAIMove();
-      }, 1000); // Simulate AI thinking with a 1-second delay
-
-      return () => clearTimeout(timer); // Cleanup timer
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [isUserTurn, board, winner, loggedInUser]);
 
   const resetGame = () => {
     setBoard(Array(9).fill(null));
-    setIsUserTurn(true); // User starts first
-    setShowPopup(false); // Hide popup after resetting the game
+    setIsUserTurn(true);
+    setShowPopup(false);
   };
 
   const renderSquare = (index) => {
     const value = board[index];
-    const textColor = value === "X" ? "text-red-500" : "text-blue-500"; // Red for X, Blue for O
+    const textColor = value === "X" ? "text-red-500" : "text-blue-500";
 
     return (
       <motion.button
         key={index}
-        className={`w-24 h-24 border-2 border-white text-4xl font-bold flex items-center justify-center hover:bg-[rgba(88,88,88,0.76)] transition-colors ${textColor}`} // 10% black background on hover
+        className={`w-24 h-24 border-2 border-white text-4xl font-bold flex items-center justify-center hover:bg-[rgba(88,88,88,0.76)] transition-colors ${textColor}`}
         onClick={() => handleClick(index)}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -146,7 +175,7 @@ const GameBoard = ({ loggedInUser, aiUser }) => {
   return (
     <>
       <h1 className="text-5xl font-bold mb-8 text-white drop-shadow-lg">Tic Tac Toe</h1>
-      <div className="grid grid-cols-3 gap-2 bg-[rgba(0,0,0,0.1)] backdrop-blur-md p-6 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.3)]"> {/* White shadow with 30% opacity */}
+      <div className="grid grid-cols-3 gap-2 bg-[rgba(0,0,0,0.1)] backdrop-blur-md p-6 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.3)]">
         {Array(9)
           .fill(null)
           .map((_, index) => (
@@ -154,10 +183,8 @@ const GameBoard = ({ loggedInUser, aiUser }) => {
           ))}
       </div>
 
-      {/* Player Status */}
       <PlayerStatus status={status} loggedInUser={loggedInUser} aiUser={aiUser} scores={scores} />
 
-      {/* Popup Modal */}
       {showPopup && (
         <Popup winner={winner} loggedInUser={loggedInUser} aiUser={aiUser} resetGame={resetGame} />
       )}
@@ -179,10 +206,10 @@ const calculateWinner = (squares) => {
   for (let line of lines) {
     const [a, b, c] = line;
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return squares[a]; // Return the winner ("X" or "O")
+      return squares[a];
     }
   }
-  return null; // No winner
+  return null;
 };
 
 export default GameBoard;
